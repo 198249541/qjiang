@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>后台登录 - Q-Jiang</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <style>
+    body {
+      background-size: cover;
+      background-position: center;
+    }
+    .glass-container {
+      max-width: 460px; /* 容器宽度更紧凑 */
+      margin: 48px auto;
+      padding: 28px;
+      border-radius: 12px;
+      backdrop-filter: blur(6px);
+      background: rgba(0,0,0,0.35);
+      color: #fff;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+      text-align: center;
+    }
+    .login-form {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      align-items: center;
+    }
+    .login-form input[type="password"] {
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: none;
+      outline: none;
+      font-size: 16px;
+      box-sizing: border-box;
+      width: 100%;
+      max-width: 280px; /* 控制输入框宽度 */
+    }
+    .login-form button {
+      padding: 8px 18px; /* 小按钮尺寸 */
+      border-radius: 6px;
+      border: none;
+      font-size: 14px;
+      cursor: pointer;
+      background: linear-gradient(90deg,#1e90ff,#007bff);
+      color: #fff;
+      width: auto; /* 按钮不拉伸 */
+    }
+    h1.title {
+      font-size: 26px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    .note {
+      text-align: center;
+      color: #ffdddd;
+      margin-top: 6px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="glass-container">
+    <h1 class="title">后台登录</h1>
+
+    <form id="loginForm" class="login-form" method="post" action="/login">
+      <input type="password" name="password" placeholder="后台密码" required autocomplete="current-password">
+      <button type="submit">登录</button>
+    </form>
+
+    <div class="note" id="msg" aria-live="polite"></div>
+  </div>
+
+  <script>
+    document.getElementById("loginForm").addEventListener("submit", function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        const msgEl = document.getElementById("msg");
+        msgEl.textContent = "";
+
+        fetch("/login", {
+            method: "POST",
+            body: formData,
+            credentials: "same-origin"
+        }).then(res => {
+            if (res.status === 403) {
+                alert("密码错误");
+                msgEl.textContent = "密码错误，请重试。";
+            } else if (res.redirected) {
+                window.location.href = res.url;
+            } else {
+                res.text().then(t => {
+                  alert("登录失败：" + t);
+                });
+            }
+        }).catch(err => {
+            alert("网络错误：" + err);
+        });
+    });
+  </script>
+</body>
+</html>

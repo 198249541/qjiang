@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>Q-Jiang 自动化（用户端）</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div class="glass-container">
+    <h1>Q-Jiang 自动化（用户端）</h1>
+    <p>输入手机号 — 若账号存在可直接运行；否则输入密码注册后运行</p>
+
+    <div class="input-group">
+      <input type="text" id="phone" placeholder="手机号，例如 18912345678">
+      <input type="password" id="password" placeholder="若账号不存在，请输入密码注册">
+      <button id="run-check">▶ 注册/运行</button>
+    </div>
+
+    <textarea id="logBox" class="log-box" readonly></textarea>
+    <p class="footer-text">来自 人生何处不青山</p>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/user.js') }}"></script>
+</body>
+</html>
+  

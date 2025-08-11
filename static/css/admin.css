@@ -1,0 +1,52 @@
+/* Table styling inside glass container */
+.account-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 14px;
+    font-size: 15px;
+}
+
+.account-table thead th {
+    background: rgba(255,255,255,0.06);
+    padding: 10px 12px;
+    font-weight: 600;
+}
+
+.account-table td {
+    padding: 10px 12px;
+    text-align: center;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.account-table tr:nth-child(even) {
+    background: rgba(255,255,255,0.02);
+}
+
+/* Delete button */
+.delete-btn {
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: none;
+    background: rgba(255, 60, 60, 0.9);
+    color: white;
+    cursor: pointer;
+}
+.delete-btn:hover { background: rgba(255,50,50,1); }
+
+/* Add / Logout buttons */
+.add-btn {
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: none;
+    background: rgba(0,180,90,0.9);
+    color: white;
+    cursor: pointer;
+}
+.logout-btn {
+    padding: 8px 12px;
+    border-radius: 8px;
+    text-decoration: none;
+    background: rgba(200,30,30,0.85);
+    color: white;
+    cursor: pointer;
+}

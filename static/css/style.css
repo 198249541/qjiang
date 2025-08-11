@@ -1,0 +1,99 @@
+/* html/body fill and center */
+html, body {
+    height: 100%;
+    margin: 0;
+}
+
+/* 页面背景 + 完全居中 */
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: "Microsoft YaHei", sans-serif;
+    background: url('/static/img/bg.jpg') no-repeat center center fixed;
+    background-size: cover;
+    color: white;
+    min-height: 100vh;
+}
+
+/* 毛玻璃容器 */
+.glass-container {
+    background: rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    padding: 28px 36px;
+    border-radius: 14px;
+    max-width: 980px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+}
+
+/* 标题 */
+h1, h2 {
+    margin: 0 0 10px;
+}
+
+/* 输入框 + 按钮组 */
+.input-group {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin: 18px 0;
+}
+
+input[type="text"], input[type="password"] {
+    padding: 10px 12px;
+    border: none;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.08);
+    color: white;
+    font-size: 14px;
+    outline: none;
+    min-width: 180px;
+}
+
+input::placeholder {
+    color: rgba(255,255,255,0.7);
+}
+
+button {
+    padding: 8px 14px;
+    border: none;
+    border-radius: 8px;
+    background: rgba(0, 123, 255, 0.9);
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+button:hover { background: rgba(0,123,255,1); }
+
+/* 日志区域（放大高度） */
+.log-box {
+    height: 200px;
+    width: 60%; /* 占毛玻璃容器的 60% */
+    margin: 0 auto; /* 居中 */
+    overflow-y: auto;
+    background: rgba(0,0,0,0.35);
+    padding: 10px;
+    border-radius: 8px;
+    color: #eaeaea;
+    font-family: monospace;
+    text-align: left;
+    white-space: pre-wrap;
+}
+
+/* 小提示文字 */
+.footer-text {
+    margin-top: 12px;
+    font-size: 14px;
+    color: rgba(255,255,255,0.85);
+}
+
+/* 响应式布局 */
+@media (max-width: 640px) {
+    .glass-container { padding: 18px; width: 95%; }
+    input[type="text"], input[type="password"] { min-width: 130px; }
+    .log-box { height: 250px; } /* 移动端高度适中 */
+}

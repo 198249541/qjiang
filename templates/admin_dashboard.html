@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>后台管理 - Q-Jiang</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <style>
+    body {
+      background: url('{{ url_for("static", filename="img/bg.jpg") }}') no-repeat center center/cover;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      font-family: "Microsoft YaHei", sans-serif;
+    }
+    .glass-container {
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(12px);
+      padding: 20px;
+      border-radius: 12px;
+      text-align: center;
+      width: 600px;
+      color: white;
+    }
+    h1 {
+      margin-bottom: 15px;
+    }
+    .btn {
+      padding: 6px 12px;
+      font-size: 14px;
+      cursor: pointer;
+      border: none;
+      border-radius: 6px;
+    }
+    .add-btn {
+      background-color: #4CAF50;
+      color: white;
+    }
+    .logout-btn {
+      background-color: #f44336;
+      color: white;
+      text-decoration: none;
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 14px;
+    }
+    th, td {
+      padding: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    th {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+    .delete-btn {
+      background-color: #f44336;
+      color: white;
+      padding: 4px 8px;
+      font-size: 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .footer-text {
+      margin-top: 10px;
+      font-size: 12px;
+      opacity: 0.7;
+    }
+    #timer-display {
+      font-weight: bold;
+      color: #2d8cf0;
+      margin-top: 10px;
+    }
+    #logArea {
+      background: black;
+      color: #0f0;
+      padding: 10px;
+      height: 300px;
+      overflow-y: auto;
+      font-family: monospace;
+      margin-top: 15px;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="glass-container">
+    <h1>后台管理</h1>
+
+    <div style="display:flex; gap:12px; justify-content:center; align-items:center; margin-bottom:12px;">
+      <button onclick="showAddDialog()" class="btn add-btn">新增账号</button>
+      <a href="{{ url_for('admin_logout') }}" class="logout-btn">退出</a>
+    </div>
+
+    <table>
+      <thead>
+        <tr><th>ID</th><th>手机号</th><th>密码</th><th>操作</th></tr>
+      </thead>
+      <tbody id="accountBody">
+        {% for acc in accounts %}
+        <tr data-id="{{ acc.id }}">
+          <td>{{ acc.id }}</td>
+          <td>{{ acc.tel_masked }}</td>
+          <td>{{ acc.pwd_masked }}</td>
+          <td><button class="delete-btn" onclick="deleteAccount({{ acc.id }})">删除</button></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div class="footer-text">当前共有 {{ total }} 个账号</div>
+
+    <!-- 倒计时 -->
+    <div id="timer-display">距离下次运行还有 {{ minutes_left }} 分 {{ seconds_left }} 秒</div>
+
+    <!-- 日志 -->
+    <div id="logArea"></div>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+</body>
+</html>
