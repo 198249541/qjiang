@@ -25,6 +25,7 @@ var/
 .idea/
 *.swp
 *.swo
+*.json
 
 # Config (optional: if you don't want to share accounts)
 # account_config.py
