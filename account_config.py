@@ -115,23 +115,23 @@ def get_accounts_config():
                         {"id": 56, "name": "蓝武魂", "points": 1500}
                     ]
             
-                            # 资源占领目标配比
-                print("\n资源占领目标配比设置:")
-                print("资源类型说明：")
-                print("- 农田：产出军粮")
-                print("- 森林：产出木材/金刚石")
-                print("- 草原：产出铜钱")
-                print("- 山丘：产出武将卡")
-                print("- 沼泽：产出宝石")
+            # 资源占领目标配比
+            print("\n资源占领目标配比设置:")
+            print("资源类型说明：")
+            print("- 农田：产出军粮")
+            print("- 森林：产出木材/金刚石")
+            print("- 草原：产出铜钱")
+            print("- 山丘：产出武将卡")
+            print("- 沼泽：产出宝石")
 
-                # 提示用户关于资源总数限制
-                print("\n⚠️  注意：资源总数最大为9个，当任意数之和达到9时将自动跳过后续输入")
+            # 提示用户关于资源总数限制
+            print("\n⚠️  注意：资源总数最大为9个，当任意数之和达到9时将自动跳过后续输入")
 
-                # 显示提示信息，不询问用户
-                print("\nℹ️  提示：请输入真实可占领领地数量，否则会导致程序错误")
-                农田 = input("农田目标数量 (默认9): ").strip()
-                森林 = input("森林目标数量 (默认0): ").strip()
-                            
+            # 显示提示信息，不询问用户
+            print("\nℹ️  提示：请输入真实可占领领地数量，否则会导致程序错误")
+            农田 = input("农田目标数量 (默认9): ").strip()
+            森林 = input("森林目标数量 (默认0): ").strip()
+                        
             # 计算已占用资源数
             total_occupied = 0
             if 农田:
@@ -295,11 +295,35 @@ def get_global_config():
     timeout_input = input("输入超时时间（秒，默认10）: ").strip()
     input_timeout = int(timeout_input) if timeout_input else 10
     
-    return {
+    # 获取第一个账号的个性化配置，提取全局配置项
+    global_config = {
         "gift_items": gift_items,
         "auto_mode": auto_mode,
         "input_timeout": input_timeout
     }
+    
+    # 从第一个账号的配置中获取默认值
+    first_account_config = None
+    if os.path.exists("config.json"):
+        with open("config.json", "r", encoding="utf-8") as f:
+            existing_config = json.load(f)
+            if existing_config.get("accounts") and len(existing_config["accounts"]) > 0:
+                first_account_config = existing_config["accounts"][0].get("config")
+    
+    # 如果有账号配置，则提取其中的全局设置
+    if first_account_config:
+        global_config["default_goodsid"] = first_account_config.get("default_goodsid", 51)
+        global_config["max_train_slots"] = first_account_config.get("max_train_slots", 3)
+    else:
+        # 如果没有现有配置，提示用户输入全局设置
+        print("\n全局默认设置（用于所有账号）")
+        default_goodsid_input = input("默认互赠资源ID (47-51, 默认51): ").strip()
+        global_config["default_goodsid"] = int(default_goodsid_input) if default_goodsid_input else 51
+        
+        max_train_input = input("最大训练槽位数 (默认3): ").strip()
+        global_config["max_train_slots"] = int(max_train_input) if max_train_input else 3
+    
+    return global_config
 
 def save_config(config, filename="config.json"):
     """保存配置到文件"""
@@ -323,9 +347,6 @@ def main():
         print("\n❌ 没有配置任何账号，程序退出")
         return
     
-    # 提示用户输入完成后按回车
-    input("\n账号输入完成，按回车键继续保存配置...")
-    
     # 获取全局配置
     global_config = get_global_config()
     
@@ -338,26 +359,17 @@ def main():
     # 显示最终配置（部分）
     print("\n📋 最终配置预览:")
     print(f"账号数量: {len(config['accounts'])}")
+    print(f"默认资源ID: {config['default_goodsid']}")
+    print(f"最大训练槽位: {config['max_train_slots']}")
     print(f"自动模式: {config['auto_mode']}")
     print(f"输入超时: {config['input_timeout']}秒")
     
-    # 直接保存配置，不再询问文件名
-    if save_config(config):  # 直接调用，使用默认文件名
+    # 保存配置
+    if save_config(config):
         print(f"\n🎉 配置文件生成成功！")
         print(f"文件位置: {os.path.abspath('config.json')}")
     else:
         print("\n❌ 配置文件保存失败")
-
-def save_config(config, filename="config.json"):  # 默认参数已设置为config.json
-    """保存配置到文件"""
-    try:
-        with open(filename, 'w', encoding='utf-8') as f:
-            json.dump(config, f, ensure_ascii=False, indent=2)
-        print(f"\n✅ 配置文件已保存到: {filename}")
-        return True
-    except Exception as e:
-        print(f"\n❌ 保存配置文件失败: {e}")
-        return False
 
 if __name__ == "__main__":
     main()
