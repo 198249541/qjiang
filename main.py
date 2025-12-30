@@ -1,4 +1,3 @@
-# main.py
 import os
 import time
 import json
@@ -194,22 +193,24 @@ def perform_training_cycle(session: requests.Session, token: str, pub_list):
         print_and_flush("⚠️ 未成功获取武将ID，跳过本轮训练和提魂")
         return None
     
-    # 步骤3: 将武将放入训练槽训练
-    print_and_flush(f"\n 将新招募武将放入训练槽训练...") 
-    # 获取当前武将列表以确定空闲槽位
-    generals = get_general_list(session, token)
-    if generals:
-        # 寻找空闲槽位
-        free_slot_indices = []
-        for i, gen in enumerate(generals):
-            if gen.get("trainStatus") != 1:  # 不在训练中
-                free_slot_indices.append(i)
-        
-        if free_slot_indices:
-            # 使用第一个空闲槽位
-            slot_idx = 0 if 0 not in [g.get("trainIndex") for g in generals if g.get("trainStatus") == 1] else 1
-            print_and_flush(f" 放入训练槽{slot_idx+1}")
-            train_general(session, token, mugId, type=1, index=slot_idx)
+    # ... existing code ...
+        # 步骤3: 将武将放入训练槽训练
+        print_and_flush(f"\n 将新招募武将放入训练槽训练...") 
+        # 获取当前武将列表以确定空闲槽位
+        generals = get_general_list(session, token)
+        if generals:
+            # 寻找空闲槽位
+            free_slot_indices = []
+            for i, gen in enumerate(generals):
+                if gen.get("trainStatus") != 1:  # 不在训练中
+                    free_slot_indices.append(i)
+            
+            if free_slot_indices:
+                # 使用第一个空闲槽位
+                slot_idx = 0 if 0 not in [g.get("trainIndex") for g in generals if g.get("trainStatus") == 1] else 1
+                print_and_flush(f" 放入训练槽{slot_idx+1}")
+                train_general(session, token, mugId, type=1, index=slot_idx)
+# ... existing code ...
     
     # 步骤4: 执行提魂操作
     print_and_flush(f"\n 开始执行提魂...")
@@ -221,8 +222,19 @@ def perform_training_cycle(session: requests.Session, token: str, pub_list):
     return mugId
 
 
-# 修改后的 run_account_tasks 函数中的相关部分
-
+def check_response_success(response):
+    """
+    检查API响应是否成功
+    """
+    if isinstance(response, dict):
+        # 检查是否包含成功标识
+        code_success = response.get("code") == 200
+        status_success = response.get("status") == "success"
+        msg_success = response.get("msg") in ["成功", "通过", "ok", "OK"]  # 添加"通过"作为成功标识
+        success_field = response.get("success") is True
+        
+        return code_success or status_success or msg_success or success_field
+    return False
 def run_account_tasks(account_index: int, tel: str, pwd: str, token_file: str):
     """
     为单个账号运行所有任务
@@ -237,6 +249,7 @@ def run_account_tasks(account_index: int, tel: str, pwd: str, token_file: str):
 
         print_and_flush(f" Token 已加载（前12位）：{str(token)[:12]}...")
         print_and_flush("-" * 50)
+        
         # 获取背包信息并使用闯关卡（放在闯关之前）
         print_and_flush("\n" + "=" * 50)
         print_and_flush(" 背包信息及闯关卡使用")
@@ -245,20 +258,117 @@ def run_account_tasks(account_index: int, tel: str, pwd: str, token_file: str):
             # 先获取背包信息
             pack_data = get_pack_info(session, token)
             # 如果获取成功，则尝试使用一个闯关卡
-            if pack_data and pack_data.get("packGoodsVos"):
-                auto_use_battle_card(session, token, pack_data["packGoodsVos"])
+            # if pack_data and pack_data.get("packGoodsVos"):
+            #     auto_use_battle_card(session, token, pack_data["packGoodsVos"])
         except Exception as e:
             print_and_flush(f" 背包信息获取或闯关卡使用失败: {e}")
             traceback_print_and_flush_exc()
-        
-        # 闯关10次
+
+        # 闯关任务
         print_and_flush("\n" + "=" * 50)
-        print_and_flush(" 开始闯关任务（10次）...")
+        print_and_flush(" 开始闯关任务...")
         print_and_flush("=" * 50)
         try:
-            # 从配置中获取闯关设置
-            battle_settings = config.get("customs_battle_settings", {"times": 10})
-            customs_battle(session, token, user_id, total_times=battle_settings.get("times", 10))
+            # 获取当前账号的配置
+            account_config = ACCOUNTS[account_index].get("config", {})
+            battle_settings = account_config.get("customs_battle_settings", {"difficulty": 3, "level": 8, "times": 10})
+            
+            # 获取当前账号的难度、关卡和次数设置
+            diff = battle_settings.get("difficulty", 3)
+            level = battle_settings.get("level", 8)
+            config_times = battle_settings.get("times", 10)
+            
+            # 检查背包是否有闯关卡 - 基于 goodsId == 133 精准识别
+            pack_data = get_pack_info(session, token)
+            battle_cards_count = 0
+            battle_card_items = []  # 保存所有闯关卡物品，包含 mpgId 信息
+
+            if pack_data and pack_data.get("packGoodsVos"):
+                for item in pack_data["packGoodsVos"]:
+                    # 精准识别：goodsId == 133 的为闯关卡
+                    if item.get("goodsId") == 133 and item.get("name") == "闯关卡":
+                        item_count = item.get("num", 0)
+                        battle_cards_count += item_count  # 累加所有数量
+                        battle_card_items.append(item)   # 保留完整物品信息，包含 mpgId
+                        print_and_flush(f"🔍 发现闯关卡: mpgId={item.get('mpgId')}, 数量={item_count}")
+
+            print_and_flush(f"📊 总共识别到闯关卡: {battle_cards_count}张 (ID=133)")
+
+            # 系统每天有6次基础机会
+            base_daily_opportunities = 6
+            
+            # 每张闯关卡提供4次机会
+            opportunities_per_card = 4
+            
+            # 计算总共需要的次数
+            total_needed = config_times
+            
+            # 计算还需要多少次机会
+            remaining_needed = max(0, total_needed - base_daily_opportunities)
+            
+            # 计算需要使用多少张闯关卡（不能超过拥有的数量）
+            cards_to_use = min(battle_cards_count, (remaining_needed + opportunities_per_card - 1) // opportunities_per_card if remaining_needed > 0 else 0)
+            
+            # 计算实际可用次数
+            total_available_times = base_daily_opportunities + (cards_to_use * opportunities_per_card)
+            
+            # 实际挑战次数 = min(配置次数, 实际可用次数)
+            actual_times = min(config_times, total_available_times)
+            
+            print_and_flush(f"📊 系统每日基础机会: {base_daily_opportunities}次")
+            print_and_flush(f"   配置要求: {config_times}次")
+            print_and_flush(f"   拥有闯关卡: {battle_cards_count}张 (ID: 133)")
+            print_and_flush(f"   需要补充: {max(0, config_times - base_daily_opportunities)}次")
+            print_and_flush(f"   可使用: {cards_to_use}张 (每张提供{opportunities_per_card}次机会)")
+            print_and_flush(f"   实际可用: {total_available_times}次 (基础{base_daily_opportunities}次 + 卡片{cards_to_use * opportunities_per_card}次)")
+            print_and_flush(f"   实际执行: {actual_times}次")
+            
+            # 实际使用闯关卡（如果需要）
+            if cards_to_use > 0 and battle_card_items:
+                print_and_flush(f"🎮 正在使用 {cards_to_use} 张闯关卡...")
+                
+                headers = {"Token": token}
+                
+                                # 使用闯关卡，优先使用第一个找到的物品
+                first_item = battle_card_items[0] if battle_card_items else None
+                if first_item:
+                    # 根据API响应，正确的字段是 mpgId，而不是 id
+                    mpgId = first_item.get("mpgId")
+                    if mpgId:
+                        print_and_flush(f"✅ 使用物品ID: {mpgId}")
+                        data = {"mpgId": mpgId, "goodsId": 133, "num": cards_to_use}
+                    else:
+                        print_and_flush("⚠️ 无法获取物品mpgId，使用备用方式")
+                        data = {"goodsId": 133, "num": cards_to_use}
+                else:
+                    print_and_flush("⚠️ 未找到有效的闯关卡物品")
+                    data = {"goodsId": 133, "num": cards_to_use}
+
+                try:
+                    response = requests.post(
+                        "https://q-jiang.myprint.top/api/mid-user-pack/splitGoods",  # 修正API端点
+                        json=data,
+                        headers=headers,
+                        timeout=10
+                    )
+                    result = response.json()
+                    
+                    # print_and_flush(f"📊 API响应内容: {result}")  # 隐藏详细响应内容输出
+                    
+                    if check_response_success(result):
+                        print_and_flush(f"✅ 成功使用 {cards_to_use} 张闯关卡")
+                    else:
+                        print_and_flush(f"❌ 使用闯关卡失败: {result.get('msg', '未知错误')}")
+                except Exception as e:
+                    print_and_flush(f"❌ 使用闯关卡时出现异常: {e}")
+                    traceback_print_and_flush_exc()
+            elif not battle_card_items:
+                print_and_flush("❌ 未找到背包中的闯关卡")
+            else:
+                print_and_flush("✅ 不需要使用闯关卡")
+            
+            # 传递具体的难度和关卡参数
+            customs_battle(session, token, user_id, total_times=actual_times, diff=diff, level=level)
         except Exception as e:
             print_and_flush(f" 关卡战斗出错: {e}")
             traceback_print_and_flush_exc()
@@ -285,6 +395,8 @@ def run_account_tasks(account_index: int, tel: str, pwd: str, token_file: str):
         # 修改：使用新的函数获取所有领地资源并自动召回
         try:
             get_all_land_resources(session, token)
+            # 传递账号索引以使用当前账号的配置
+            auto_occupy_resources_gradually(session, token, account_index)
         except Exception as e:
             print_and_flush(f" 获取领地资源失败: {e}")
             traceback_print_and_flush_exc()
@@ -325,7 +437,9 @@ def run_account_tasks(account_index: int, tel: str, pwd: str, token_file: str):
         print_and_flush("📨 好友资源互赠")
         print_and_flush("=" * 50)
         # 自动选择默认资源进行互赠
-        goodsid = DEFAULT_GOODSID
+        # 使用当前账号的配置而不是全局配置
+        account_config = ACCOUNTS[account_index].get("config", {})
+        goodsid = account_config.get("default_goodsid", DEFAULT_GOODSID)  # 如果账号配置中没有，则使用全局默认值
         print_and_flush(f" 自动选择资源: {GIFT_ITEMS.get(str(goodsid), '未知资源')}")
         
         if str(goodsid) in GIFT_ITEMS:
@@ -370,7 +484,6 @@ def run_account_tasks(account_index: int, tel: str, pwd: str, token_file: str):
     except Exception as e:
         print_and_flush(f"\n 账号 {account_index + 1} 程序运行过程中出现未处理的异常: {e}")
         traceback_print_and_flush_exc()
-
 def main():
     print_and_flush(" 开始执行多账号每日任务...")
     print_and_flush(f" {time.strftime('%Y年%m月%d日 %H:%M:%S')}")

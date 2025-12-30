@@ -78,14 +78,13 @@ def luck_draw_later(uuid_value, bcId, token):
         print_and_flush(f"❌ 邮件抽奖异常: {e}")
     return False
 
-def customs_battle(session, token, user_id, total_times=10):
-    # 默认选择地狱难度的汴梁城
-    diff = 3  # 地狱难度
-    level = 8  # 汴梁城
+def customs_battle(session, token, user_id, total_times=10, diff=3, level=8):
+    # 使用传入的参数，而不是硬编码
     bcId = diff * 8 + level
 
     print_and_flush(f"\n📝 战斗参数：难度={DIFFICULTY_MAP.get(diff, '未知')} 关卡={LEVEL_NAMES.get(level, '未知')} 次数={total_times}")
     print_and_flush("-" * 50)
+    # ... 其余代码保持不变
 
     for t in range(1, total_times + 1):
         print_and_flush(f"🚀 第 {t}/{total_times} 次挑战开始")

@@ -3,6 +3,7 @@
 import sys
 import datetime
 import time
+import json 
 
 def print_and_flush(*args, **kwargs):
     print(*args, **kwargs)
@@ -575,26 +576,41 @@ def get_current_occupied_count(session, token):
     return occupied_count
 
 
-def auto_occupy_resources_gradually(session, token):
+# ... existing code ...
+def auto_occupy_resources_gradually(session, token, account_index=None):
     """
     逐个检查并占领资源，减少服务器压力
     增加对"超出资源占领上限"错误的处理
+    :param account_index: 账号索引，用于获取对应账号的配置
     """
     print_and_flush("🚀 开始逐个占领资源流程...")
     
-    # 从配置文件获取目标配比
+    # 从配置文件获取目标配比，优先使用当前账号的配置
     try:
         with open("config.json", "r", encoding="utf-8") as f:
             config = json.load(f)
-        target_distribution = config.get("target_resource_distribution", {
-            "农田": 9,
-            "森林": 0,
-            "草原": 0,
-            "山丘": 0,
-            "沼泽": 0
-        })
-    except Exception:
+        
+        # 如果提供了账号索引，则使用该账号的配置
+        if account_index is not None and 0 <= account_index < len(config.get("accounts", [])):
+            target_distribution = config["accounts"][account_index]["config"].get("target_resource_distribution", {
+                "农田": 9,
+                "森林": 0,
+                "草原": 0,
+                "山丘": 0,
+                "沼泽": 0
+            })
+        else:
+            # 如果没有提供账号索引或索引无效，使用全局配置
+            target_distribution = config.get("target_resource_distribution", {
+                "农田": 9,
+                "森林": 0,
+                "草原": 0,
+                "山丘": 0,
+                "沼泽": 0
+            })
+    except Exception as e:
         # 如果配置文件不存在或格式错误，使用默认值
+        print_and_flush(f"⚠️ 读取配置文件失败: {e}，使用默认配置")
         target_distribution = {
             "农田": 9,
             "森林": 0,
@@ -605,7 +621,7 @@ def auto_occupy_resources_gradually(session, token):
     
     # 1. 获取当前已占用的资源数量和类型分布
     occupy_resource_list = get_occupy_resource_list(session, token)
-    
+
     # 统计当前各类型资源的占用情况
     current_distribution = {"农田": 0, "森林": 0, "草原": 0, "山丘": 0, "沼泽": 0}
     if occupy_resource_list:
@@ -616,9 +632,9 @@ def auto_occupy_resources_gradually(session, token):
                 resource_name = res.get("brName", "未知资源")
                 if resource_name in current_distribution:
                     current_distribution[resource_name] += 1
-    
+
     print_and_flush(f"📊 当前资源分布: 农田{current_distribution['农田']}/9, 森林{current_distribution['森林']}/0, 草原{current_distribution['草原']}/0, 山丘{current_distribution['山丘']}/0, 沼泽{current_distribution['沼泽']}/0")
-    
+
     # 计算还需要占领的各类资源数量
     needed_distribution = {}
     total_needed = 0
@@ -762,3 +778,4 @@ def auto_occupy_resources_gradually(session, token):
         print_and_flush("🏁 由于超出资源占领上限，提前结束占领流程")
     else:
         print_and_flush(f"🏁 逐个占领流程结束，共成功占领 {occupied_count} 个资源")
+# ... existing code ...

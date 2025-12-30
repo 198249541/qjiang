@@ -216,9 +216,87 @@ def can_train(gen: dict) -> bool:
     return rank < get_max_level(quality, star)
 
 
-def train_general(session: requests.Session, token: str, mugId, type=2, index=0):
+def get_user_info(session: requests.Session, token: str):
+    """
+    获取用户信息，包括VIP等级
+    """
+    url = "https://q-jiang.myprint.top/api/bas-assets/userInfo"
     headers = {"Token": token, "Content-Type": "application/json"}
+    
+    try:
+        response = session.post(url, headers=headers, json={})
+        response.raise_for_status()
+        result = response.json()
+        
+        # print_and_flush(f"📋 用户信息API响应: {result}")  # 添加调试信息
+        
+        if result.get("success") and str(result.get("code")) == "200":
+            user_data = result.get("data", {})
+            # print_and_flush(f"📋 获取到的用户数据: {user_data}")  # 添加调试信息
+            
+            # 检查数据结构，VIP 信息可能在 userInfo 字段中
+            if "userInfo" in user_data:
+                return user_data["userInfo"]
+            else:
+                return user_data
+        else:
+            # print_and_flush(f"❌ 获取用户信息失败: {result}")  # 添加错误信息
+            return None
+    except Exception as e:
+        # print_and_flush(f"❌ 获取用户信息异常: {e}")  # 添加异常信息
+        return None
+
+# ... existing code ...
+def train_general(session: requests.Session, token: str, mugId, type=None, index=0):
+    """
+    训练武将
+    :param session: requests session
+    :param token: 用户token
+    :param mugId: 武将ID
+    :param type: 训练类型 (1=普通, 2=VIP1+, 3=VIP5+), 如果为None则自动根据VIP等级确定
+    :param index: 训练槽索引 (0-8)
+    :return: True/False
+    """
+    headers = {"Token": token, "Content-Type": "application/json"}
+    
+    # 获取用户VIP信息以确定正确的type和index参数
+    user_info = get_user_info(session, token)
+    vip_rank = 0
+    if user_info:
+        vip_rank = user_info.get("vipRank", 0)
+    
+    # 如果type未指定，则根据VIP等级自动设置
+    if type is None:
+        if vip_rank >= 5:
+            type = 3  # VIP5+ 使用type=3
+        elif vip_rank >= 1:
+            type = 2  # VIP1+ 使用type=2
+        else:
+            type = 1  # 非VIP 使用type=1
+    
+    # 确保index在有效范围内
+    # 根据VIP等级确定最大索引
+    if vip_rank <= 0:
+        max_index = 1   # 非VIP最多2个槽位(index 0,1)
+    elif vip_rank == 1:
+        max_index = 2   # VIP1 3个槽位(index 0,1,2)
+    elif vip_rank == 2:
+        max_index = 3   # VIP2 4个槽位(index 0,1,2,3)
+    elif vip_rank == 3:
+        max_index = 5   # VIP3 6个槽位(index 0,1,2,3,4,5)
+    elif vip_rank == 4:
+        max_index = 6   # VIP4 7个槽位(index 0,1,2,3,4,5,6)
+    else:  # vip_rank >= 5
+        max_index = 8   # VIP5+ 9个槽位(index 0-8)
+    
+    index = min(index, max_index)
+    
     payload = {"mugId": mugId, "type": type, "index": index}
+    
+    # 显示给用户的槽位编号从1开始计数
+    slot_display_number = index + 1
+    print_and_flush(f"⚔️ 正在训练武将 ID: {mugId} (type: {type}, 槽位: {slot_display_number}, VIP等级: {vip_rank})...")
+    
     for attempt in range(5):
         try:
             resp = session.post(f"{BASE_URL}/trainGeneral", headers=headers, json=payload, timeout=10)
@@ -243,7 +321,7 @@ def train_general(session: requests.Session, token: str, mugId, type=2, index=0)
             time.sleep(2)
     print_and_flush("❌ 多次重试失败，放弃此次训练请求")
     return False
-
+# ... existing code ...
 
 def finish_train(session: requests.Session, token: str, mugId):
     url = f"{BASE_URL}/finishTrain"
@@ -265,18 +343,58 @@ def finish_train(session: requests.Session, token: str, mugId):
     return False
 
 
-def show_train_slots(session: requests.Session, token: str, generals: list):
+# ... existing code ...
+def show_train_slots(session: requests.Session, token: str, generals: list, max_slots_override: int = None):
     """显示训练槽状态并自动收获已完成训练的武将"""
-    train_slots = [None, None, None]  # 3个槽位
+    # 如果提供了覆盖值，则直接使用覆盖值
+    if max_slots_override is not None:
+        max_slots = max_slots_override
+    else:
+        # 获取用户VIP信息以确定最大槽位数
+        user_info = get_user_info(session, token)
+        vip_rank = 0
+        if user_info:
+            vip_rank = user_info.get("vipRank", 0)
+        
+        # 从配置中获取最大训练槽位数
+        config_max_slots = 2  # 默认值
+        try:
+            with open("config.json", "r", encoding="utf-8") as f:
+                config = json.load(f)
+            # 尝试使用全局配置（但通常不会走到这一步，因为调用时会传入override）
+            config_max_slots = config.get("max_train_slots", config_max_slots)
+        except Exception:
+            pass  # 如果配置文件不存在，使用默认值
+        
+        # 根据VIP等级和配置文件确定最大槽位数
+        # VIP等级对应的最大训练槽位数
+        if vip_rank <= 0:
+            vip_max_slots = 2   # 非VIP 2个槽位
+        elif vip_rank == 1:
+            vip_max_slots = 3   # VIP1 3个槽位
+        elif vip_rank == 2:
+            vip_max_slots = 4   # VIP2 4个槽位
+        elif vip_rank == 3:
+            vip_max_slots = 6   # VIP3 6个槽位
+        elif vip_rank == 4:
+            vip_max_slots = 7   # VIP4 7个槽位
+        else:  # vip_rank >= 5
+            vip_max_slots = 9   # VIP5+ 9个槽位
+        
+        # 取配置值和VIP等级允许值的最小值
+        max_slots = min(config_max_slots, vip_max_slots)
+    
+    # 初始化训练槽
+    train_slots = [None] * max_slots
     harvested_mugids = []  # 记录已收获的武将ID
     
     for gen in generals:
         if gen.get("trainStatus") == 1:
             idx = gen.get("trainIndex", -1)
-            if idx in (0, 1, 2):  # 支持0, 1, 2三个索引
+            if 0 <= idx < max_slots:  # 支持0到max_slots-1的索引
                 train_slots[idx] = gen
 
-    print_and_flush("📋 训练槽状态：")
+    print_and_flush(f"📋 训练槽状态（共{max_slots}个槽位）：")
     now_ts = int(time.time())
     for idx, gen in enumerate(train_slots):
         if gen:
@@ -307,7 +425,7 @@ def show_train_slots(session: requests.Session, token: str, generals: list):
             print_and_flush(f"  槽 {idx+1}：🟢 空闲")
             
     return train_slots
-
+# ... existing code ...
 
 def get_trainable_generals(generals: list):
     """获取可训练的武将列表"""
@@ -319,10 +437,56 @@ def get_trainable_generals(generals: list):
     return trainable
 
 
-def auto_train_generals(session: requests.Session, token: str, generals: list, max_trains: int = 3):
+# ... existing code ...
+def auto_train_generals(session: requests.Session, token: str, generals: list, max_trains: int = 3, account_index: int = None):
     """自动训练武将，最多训练max_trains个"""
+    # 获取用户VIP信息以确定最大训练槽位数
+    user_info = get_user_info(session, token)
+    vip_rank = 0
+    if user_info:
+        vip_rank = user_info.get("vipRank", 0)
+    
+    # 从配置中获取最大训练槽位数，优先使用当前账号的配置
+    config_max_slots = 2  # 默认值
+    try:
+        with open("config.json", "r", encoding="utf-8") as f:
+            config = json.load(f)
+        
+        # 如果提供了账号索引，则使用该账号的配置
+        if account_index is not None and 0 <= account_index < len(config.get("accounts", [])):
+            config_max_slots = config["accounts"][account_index]["config"].get("max_train_slots", config_max_slots)
+        else:
+            # 如果没有提供账号索引或索引无效，使用全局配置
+            config_max_slots = config.get("max_train_slots", config_max_slots)
+    except Exception as e:
+        print_and_flush(f"⚠️ 读取配置文件失败: {e}，使用默认配置")
+        pass  # 如果配置文件不存在，使用默认值
+    
+    # 根据VIP等级和配置文件确定最大槽位数
+    # VIP等级对应的最大训练槽位数
+    if vip_rank <= 0:
+        vip_max_slots = 2   # 非VIP 2个槽位
+    elif vip_rank == 1:
+        vip_max_slots = 3   # VIP1 3个槽位
+    elif vip_rank == 2:
+        vip_max_slots = 4   # VIP2 4个槽位
+    elif vip_rank == 3:
+        vip_max_slots = 6   # VIP3 6个槽位
+    elif vip_rank == 4:
+        vip_max_slots = 7   # VIP4 7个槽位
+    else:  # vip_rank >= 5
+        vip_max_slots = 9   # VIP5+ 9个槽位
+    
+    # 取配置值和VIP等级允许值的最小值
+    max_slots = min(config_max_slots, vip_max_slots)
+    
+    # 从参数传入的max_trains和VIP等级允许的最大槽位数中取最小值
+    max_trains = min(max_trains, max_slots)  # 不超过VIP等级允许的最大槽位数
+    
+    print_and_flush(f"📋 当前账号配置: 最大训练槽位数为 {max_slots} (配置值: {config_max_slots}, VIP等级: {vip_rank})")
+    
     # 显示训练槽状态并收获已完成的
-    train_slots = show_train_slots(session, token, generals)
+    train_slots = show_train_slots(session, token, generals, max_slots_override=max_slots)
     
     # 如果收获了训练，则需要重新获取武将状态
     harvested_any = any(slot is None for slot in train_slots) if any(slot is not None for slot in train_slots) else False
@@ -336,11 +500,12 @@ def auto_train_generals(session: requests.Session, token: str, generals: list, m
             print_and_flush("⚠️ 重新获取武将列表失败，使用原有数据")
     
     # 重新显示训练槽状态（基于更新后的数据）
-    train_slots = show_train_slots(session, token, generals)
+    train_slots = show_train_slots(session, token, generals, max_slots_override=max_slots)
     
-    # 如果三个槽位都在训练中时跳过
-    if all(train_slots):
-        print_and_flush("⚠️ 三个槽位均在训练中，跳过自动训练")
+    # 如果所有槽位都在训练中时跳过
+    occupied_slots = sum(1 for slot in train_slots if slot is not None)
+    if occupied_slots >= max_slots:
+        print_and_flush(f"⚠️ {max_slots}个槽位均在训练中，跳过自动训练")
         return
     
     # 获取可训练武将
@@ -351,7 +516,7 @@ def auto_train_generals(session: requests.Session, token: str, generals: list, m
         return
 
     # 自动训练武将填满空闲槽位
-    free_slots = sum(1 for slot in train_slots if not slot)
+    free_slots = max_slots - occupied_slots
     trains_to_do = min(free_slots, max_trains, len(trainable))
     
     if trains_to_do <= 0:
@@ -361,11 +526,18 @@ def auto_train_generals(session: requests.Session, token: str, generals: list, m
     for disp_num, orig_num, mugId, gen in trainable[:trains_to_do]:
         print_and_flush(f"  {disp_num}. 【{orig_num}】{format_general_info(gen)}")
     
-    free_slot_indices = [i for i, slot in enumerate(train_slots) if not slot]
+    free_slot_indices = [i for i in range(max_slots) if i >= len(train_slots) or train_slots[i] is None]
     for i in range(trains_to_do):
-        mugId = trainable[i][2]
-        gen = trainable[i][3]
-        slot_idx = free_slot_indices[i]
-        print_and_flush(f"\n🔥 开始训练：{format_general_info(gen)}")
-        print_and_flush(f"➡️ 放入训练槽{slot_idx+1}")
-        train_general(session, token, mugId, type=2, index=slot_idx)
+        if i < len(free_slot_indices):
+            mugId = trainable[i][2]
+            gen = trainable[i][3]
+            slot_idx = free_slot_indices[i]
+            print_and_flush(f"\n🔥 开始训练：{format_general_info(gen)}")
+            # 显示给用户的槽位编号从1开始计数
+            slot_display_number = slot_idx + 1
+            print_and_flush(f"➡️ 放入训练槽{slot_display_number}")
+            # 根据VIP等级自动确定type
+            train_general(session, token, mugId, index=slot_idx)
+        else:
+            print_and_flush(f"⚠️ 无法找到空闲槽位 {i+1}，跳过训练")
+# ... existing code ...

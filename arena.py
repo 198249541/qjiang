@@ -244,13 +244,35 @@ def exchange_arena_goods(session, token, goods_id, num=1):
         print_and_flush(f"❌ 发送物品兑换请求失败: {e}")
         return False
 
-def auto_exchange_arena_goods(session, token, target_item=None):
+# ... existing code ...
+def auto_exchange_arena_goods(session, token, target_item=None, account_index=None):
     """
     自动兑换擂台积分物品
     :param session: requests session
     :param token: 用户token
     :param target_item: 目标兑换物品信息，格式: {"id": 物品ID, "name": 物品名称, "points": 所需积分}
+    :param account_index: 账号索引，用于获取对应账号的配置
     """
+    # 检查是否启用了擂台兑换功能
+    try:
+        with open("config.json", "r", encoding="utf-8") as f:
+            config = json.load(f)
+        
+        # 如果提供了账号索引，则使用该账号的配置
+        if account_index is not None and 0 <= account_index < len(config.get("accounts", [])):
+            enable_arena_exchange = config["accounts"][account_index]["config"].get("enable_arena_exchange", False)
+        else:
+            # 如果没有提供账号索引或索引无效，使用全局配置
+            enable_arena_exchange = config.get("enable_arena_exchange", False)
+    except Exception:
+        # 如果配置文件不存在或格式错误，使用默认值
+        enable_arena_exchange = False
+    
+    # 如果未启用擂台兑换功能，则直接返回
+    if not enable_arena_exchange:
+        print_and_flush("⏭️ 擂台积分兑换功能已禁用，跳过兑换")
+        return False
+    
     total_exchanged = 0  # 记录总兑换次数
     exchanged_items = {}  # 记录各物品兑换数量
     
@@ -366,13 +388,21 @@ def auto_exchange_arena_goods(session, token, target_item=None):
         
         # 如果未指定目标物品，则按优先级自动兑换
         else:
-            # 从配置文件获取兑换优先级
+            # 从配置文件获取兑换优先级，优先使用当前账号的配置
             try:
                 with open("config.json", "r", encoding="utf-8") as f:
                     config = json.load(f)
-                priority_list = config.get("arena_exchange_priority", [
-                    {"id": 56, "name": "蓝武魂", "points": 1500}
-                ])
+                
+                # 如果提供了账号索引，则使用该账号的配置
+                if account_index is not None and 0 <= account_index < len(config.get("accounts", [])):
+                    priority_list = config["accounts"][account_index]["config"].get("arena_exchange_priority", [
+                        {"id": 56, "name": "蓝武魂", "points": 1500}
+                    ])
+                else:
+                    # 如果没有提供账号索引或索引无效，使用全局配置
+                    priority_list = config.get("arena_exchange_priority", [
+                        {"id": 56, "name": "蓝武魂", "points": 1500}
+                    ])
             except Exception:
                 # 如果配置文件不存在或格式错误，使用默认值
                 priority_list = [
@@ -426,3 +456,4 @@ def auto_exchange_arena_goods(session, token, target_item=None):
                 else:
                     print_and_flush("ℹ️ 没有可兑换的物品")
                 return True  # 所有物品都无法兑换时结束
+# ... existing code ...

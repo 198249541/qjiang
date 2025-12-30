@@ -235,12 +235,11 @@ def run_account_tasks(account_index: int, tel: str, pwd: str, token_file: str):
             # 查看擂台排行榜
             get_arena_rank_list(session, token)
             
-            # 自动兑换积分物品
-            auto_exchange_arena_goods(session, token)
+            # 自动兑换积分物品（传递账号索引）
+            auto_exchange_arena_goods(session, token, account_index=account_index)
         except Exception as e:
             print_and_flush(f" 擂台功能执行失败: {e}")
             traceback_print_and_flush_exc()
-
         # ========== 市场自动征收功能 ==========
         print_and_flush("\n" + "=" * 50)
         print_and_flush("💰 市场自动征收")
@@ -261,6 +260,7 @@ def run_account_tasks(account_index: int, tel: str, pwd: str, token_file: str):
             print_and_flush(f" 银票自动兑换失败: {e}")
             traceback_print_and_flush_exc()
 
+        # ... existing code ...
         # ========== 武将自动训练功能 ==========
         print_and_flush("\n" + "=" * 50)
         print_and_flush("⚔️ 武将自动训练")
@@ -268,12 +268,16 @@ def run_account_tasks(account_index: int, tel: str, pwd: str, token_file: str):
         try:
             generals = get_general_list(session, token)
             if generals:
-                auto_train_generals(session, token, generals, max_trains=config.get("max_train_slots", 2))
+                # 使用当前账号的配置而不是全局配置
+                account_config = ACCOUNTS[account_index].get("config", {})
+                max_trains = account_config.get("max_train_slots", config.get("max_train_slots", 2))
+                auto_train_generals(session, token, generals, max_trains=max_trains, account_index=account_index)
             else:
                 print_and_flush("⚠️ 未能获取武将列表，跳过自动训练")
         except Exception as e:
             print_and_flush(f" 武将自动训练失败: {e}")
             traceback_print_and_flush_exc()
+# ... existing code ...
 
         # ========== 领地资源功能 ==========
         print_and_flush("\n" + "=" * 50)
@@ -283,8 +287,8 @@ def run_account_tasks(account_index: int, tel: str, pwd: str, token_file: str):
             # 获取所有领地资源并自动召回
             get_all_land_resources(session, token)
             
-            # 逐个占领资源（按固定配比）
-            auto_occupy_resources_gradually(session, token)
+            # 逐个占领资源（按当前账号配置的配比）
+            auto_occupy_resources_gradually(session, token, account_index)
         except Exception as e:
             print_and_flush(f" 领地资源管理失败: {e}")
             traceback_print_and_flush_exc()
@@ -316,7 +320,9 @@ def run_account_tasks(account_index: int, tel: str, pwd: str, token_file: str):
         
         # 好友资源互赠
         try:
-            goodsid = DEFAULT_GOODSID
+            # 使用当前账号的配置而不是全局配置
+            account_config = ACCOUNTS[account_index].get("config", {})
+            goodsid = account_config.get("default_goodsid", DEFAULT_GOODSID)  # 如果账号配置中没有，则使用全局默认值
             print_and_flush(f" 自动选择资源: {GIFT_ITEMS.get(str(goodsid), '未知资源')}")
             
             if str(goodsid) in GIFT_ITEMS:
