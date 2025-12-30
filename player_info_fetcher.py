@@ -19,8 +19,8 @@ def login(tel, pwd):
         'Content-Type': 'application/json'
     }
     payload = {
-        "tel": "tel",  # 替换为实际电话号码
-        "pwd": "pwd"       # 替换为实际密码
+        "tel": tel,  # 替换为实际电话号码
+        "pwd": pwd       # 替换为实际密码
     }
     
     try:
